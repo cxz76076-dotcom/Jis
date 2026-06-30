@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>تطبيق ديسكورد المصغر</title>
+    <style>
+        body { margin: 0; display: flex; height: 100vh; background-color: #36393f; color: white; font-family: sans-serif; }
+        #sidebar { width: 250px; background-color: #2f3136; padding: 15px; }
+        #main { flex: 1; display: flex; flex-direction: column; }
+        #chat-window { flex: 1; padding: 20px; overflow-y: auto; border-bottom: 1px solid #444; }
+        #input-area { padding: 20px; }
+        input { width: 95%; padding: 10px; background: #40444b; border: none; color: white; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <div id="sidebar">
+        <h3>غرفتي</h3>
+        <p>الأصدقاء (0)</p>
+    </div>
+    <div id="main">
+        <div id="chat-window"></div>
+        <div id="input-area">
+            <input type="text" id="msgInput" placeholder="اكتب رسالة هنا...">
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script>
+        const socket = io("http://localhost:3000"); // الاتصال بالسيرفر
+        const chatWindow = document.getElementById('chat-window');
+        const input = document.getElementById('msgInput');
+
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && input.value.trim() !== "") {
+                socket.emit('chat message', input.value);
+                input.value = '';
+            }
+        });
+
+        socket.on('chat message', (msg) => {
+            const div = document.createElement('div');
+            div.textContent = msg;
+            chatWindow.appendChild(div);
+        });
+    </script> <!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>تطبيق ديسكورد المصغر</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body { margin: 0; display: flex; height: 100vh; background-color: #36393f; color: white; font-family: sans-serif; }
+        #sidebar { width: 250px; background-color: #2f3136; padding: 15px; }
+        #main { flex: 1; display: flex; flex-direction: column; }
+        #chat-window { flex: 1; padding: 20px; overflow-y: auto; border-bottom: 1px solid #444; }
+    </style>
+</head>
+<body>
+    <div id="sidebar">
+        <h3>الأصدقاء</h3>
+        <input type="text" id="peerIdInput" placeholder="أدخل ID الصديق">
+        <button onclick="startCall()">اتصل</button>
+    </div>
+    <div id="main">
+        <div id="chat-window">أهلاً بك في التطبيق!</div>
+        <audio id="remoteAudio" autoplay></audio>
+    </div>
+
+    <script>
+        const peer = new Peer(); // إنشاء المعرف الخاص بك
+        let localStream;
+
+        // الحصول على الميكروفون
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+            localStream = stream;
+        });
+
+        // الاتصال
+        function startCall() {
+            const peerId = document.getElementById('peerIdInput').value;
+            const call = peer.call(peerId, localStream);
+            call.on('stream', stream => {
+                document.getElementById('remoteAudio').srcObject = stream;
+            });
+        }
+
+        // استقبال الاتصال
+        peer.on('call', call => {
+            call.answer(localStream);
+            call.on('stream', stream => {
+                document.getElementById('remoteAudio').srcObject = stream;
+            });
+        });
+
+        // إظهار الـ ID الخاص بك لتعطيه لصديقك
+        peer.on('open', id => {
+            alert("هذا هو الـ ID الخاص بك، اعطه لصديقك: " + id);
+        });
+    </script>
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>ديسكورد مطور مع مغير صوت</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body { margin: 0; background-color: #36393f; color: white; font-family: sans-serif; padding: 20px; }
+        .box { background: #2f3136; padding: 20px; border-radius: 10px; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h3>مغير الصوت المباشر</h3>
+        <label>قوة النبرة (Pitch):</label>
+        <input type="range" id="pitchRange" min="0.5" max="2" step="0.1" value="1">
+    </div>
+
+    <div class="box">
+        <input type="text" id="peerIdInput" placeholder="ID الصديق">
+        <button onclick="startCall()">اتصل بصديق</button>
+    </div>
+
+    <audio id="remoteAudio" autoplay></audio>
+
+    <script>
+        const peer = new Peer();
+        let audioContext, source, pitchShifter, processedStream;
+        const pitchRange = document.getElementById('pitchRange');
+
+        // 1. إعداد معالج الصوت
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+            audioContext = new AudioContext();
+            source = audioContext.createMediaStreamSource(stream);
+            
+            // إنشاء عقدة المعالجة (تغيير السرعة كبديل بسيط للـ Pitch)
+            const mediaStreamDestination = audioContext.createMediaStreamDestination();
+            source.connect(mediaStreamDestination);
+            
+            processedStream = mediaStreamDestination.stream;
+            
+            // التحكم في النبرة (ملاحظة: المتصفحات تدعم التغيير المباشر عبر playbackRate)
+            pitchRange.oninput = (e) => {
+                // تعديل بسيط للتردد
+                audioContext.playbackRate = e.target.value; 
+            };
+        });
+
+        // 2. الاتصال باستخدام الصوت المعدل
+        function startCall() {
+            const peerId = document.getElementById('peerIdInput').value;
+            const call = peer.call(peerId, processedStream); // إرسال الصوت المعدل
+            call.on('stream', stream => {
+                document.getElementById('remoteAudio').srcObject = stream;
+            });
+        }
+
+        peer.on('call', call => {
+            call.answer(processedStream); // الرد بالصوت المعدل
+            call.on('stream', stream => {
+                document.getElementById('remoteAudio').srcObject = stream;
+            });
+        });
+
+        peer.on('open', id => alert("معرفك الخاص: " + id));
+    </script><!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>تطبيق ديسكورد الصوتي</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body { background: #36393f; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; }
+        .controls { background: #2f3136; padding: 20px; border-radius: 10px; margin: 10px; width: 300px; text-align: center; }
+        button { background: #7289da; border: none; color: white; padding: 10px; cursor: pointer; border-radius: 5px; }
+        #localAudio { display: none; } /* المراقبة مخفية ولكن شغالة */
+    </style>
+</head>
+<body>
+    <h1>تحكم في صوتك</h1>
+    <div class="controls">
+        <label>نبرة الصوت (Pitch):</label>
+        <input type="range" id="pitchRange" min="0.5" max="2" step="0.1" value="1">
+        <br><br>
+        <button onclick="toggleMonitor()">سماع صوتي الخاص: <span id="status">مغلق</span></button>
+    </div>
+
+    <div class="controls">
+        <input type="text" id="peerIdInput" placeholder="ID الصديق">
+        <button onclick="startCall()">اتصال</button>
+    </div>
+
+    <audio id="localAudio" autoplay muted></audio> <audio id="remoteAudio" autoplay></audio> <script>
+        const peer = new Peer();
+        let audioContext, source, processor, processedStream;
+        const localAudio = document.getElementById('localAudio');
+        const remoteAudio = document.getElementById('remoteAudio');
+
+        // إعداد الصوت والمعالج
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+            audioContext = new AudioContext();
+            source = audioContext.createMediaStreamSource(stream);
+            const destination = audioContext.createMediaStreamDestination();
+            
+            // الربط بالمعالج
+            source.connect(destination);
+            processedStream = destination.stream;
+        });
+
+        // المراقبة (سماع صوتك)
+        function toggleMonitor() {
+            const status = document.getElementById('status');
+            if (localAudio.paused) {
+                localAudio.srcObject = processedStream;
+                localAudio.muted = false; // فك كتم الصوت لسماع نفسك
+                status.innerText = "مفتوح";
+            } else {
+                localAudio.muted = true;
+                status.innerText = "مغلق";
+            }
+        }
+
+        function startCall() {
+            const id = document.getElementById('peerIdInput').value;
+            const call = peer.call(id, processedStream);
+            call.on('stream', s => remoteAudio.srcObject = s);
+        }
+
+        peer.on('call', call => {
+            call.answer(processedStream);
+            call.on('stream', s => remoteAudio.srcObject = s);
+        });
+
+        peer.on('open', id => console.log("ID الخاص بك: " + id));
+    </script><!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>ديسكورد الخاص بي</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body { margin: 0; display: flex; height: 100vh; background-color: #36393f; color: white; font-family: sans-serif; }
+        #servers { width: 70px; background-color: #202225; padding: 10px; }
+        #friends { width: 240px; background-color: #2f3136; padding: 15px; }
+        #chat { flex: 1; display: flex; flex-direction: column; padding: 20px; }
+        .box { background: #40444b; padding: 10px; border-radius: 5px; margin-bottom: 10px; }
+        button { background: #7289da; border: none; color: white; padding: 10px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div id="servers">خادمك</div>
+    <div id="friends">
+        <h3>الأصدقاء</h3>
+        <input type="text" id="peerIdInput" placeholder="أدخل ID الصديق">
+        <button onclick="startCall()">اتصل</button>
+        <div style="margin-top:20px;">
+            <label>نبرة الصوت:</label>
+            <input type="range" id="pitchRange" min="0.5" max="2" step="0.1" value="1">
+            <button onclick="toggleMonitor()">سماع صوتي: <span id="status">مغلق</span></button>
+        </div>
+    </div>
+    <div id="chat">
+        <h2>غرفة المحادثة</h2>
+        <div id="messages" class="box" style="flex:1;"></div>
+    </div>
+
+    <audio id="localAudio" autoplay muted></audio>
+    <audio id="remoteAudio" autoplay></audio>
+
+    <script>
+        const peer = new Peer();
+        let processedStream;
+
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+            const ctx = new AudioContext();
+            const src = ctx.createMediaStreamSource(stream);
+            const dest = ctx.createMediaStreamDestination();
+            src.connect(dest);
+            processedStream = dest.stream;
+        });
+
+        function startCall() {
+            const id = document.getElementById('peerIdInput').value;
+            const call = peer.call(id, processedStream);
+            call.on('stream', s => document.getElementById('remoteAudio').srcObject = s);
+        }
+
+        peer.on('call', call => {
+            call.answer(processedStream);
+            call.on('stream', s => document.getElementById('remoteAudio').srcObject = s);
+        });
+
+        function toggleMonitor() {
+            const localAudio = document.getElementById('localAudio');
+            localAudio.srcObject = processedStream;
+            localAudio.muted = !localAudio.muted;
+            document.getElementById('status').innerText = localAudio.muted ? "مغلق" : "مفتوح";
+        }
+
+        peer.on('open', id => alert("معرفك هو: " + id));
+    </script>
+
+</body>
+</html>
+
